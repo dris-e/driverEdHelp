@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yes</title>
+</head>
+<body>
+    <button id="toggle-settings">settings</button>
+    <div id="bigger-transcript-container">
+        <div id="transcript-container">
+            <h2 class="title-text">Transcript</h2>
+            <div id="transcript"></div>
+            <h2 id="transcript-status" class="title-text">status (not staretd)</h2>
+        </div>
+        <div id="bigger-summary-container">
+            <div id="summary-container" class="output-container">
+                <h2 class="title-text">Summary</h2>
+                <ul id="summary-text" class="text-container"></ul>
+                <p id="summary-status" class="title-text"></p>
+            </div>
+            <div id="questions-container" class="output-container">
+                <h2 class="title-text">Questions</h2>
+                <ul id="questions-text" class="text-container"></ul>
+            </div>
+            <div id="possible-container" class="output-container">
+                <h2 class="title-text">Possible Questions</h2>
+                <ul id="possible-text" class="text-container"></ul>
+            </div>
+            <div id="bigger-setting-container">
+                <div id="transcript-settings">
+                    <h1 style="text-align: center;"><span style="color: #DBD053">drivers Ed</span> <span style="letter-spacing: 0.1rem;">help</span> <span style="font-size: 0.7rem">(by dris)</span></h1>
+                    <button id="start-transcript">start</button>
+                    <button id="reset-transcript">reset</button>
+                    <input type="text" id="target-words" placeholder="speertate by comma">
+                    <input type="text" id="target-date" placeholder="timestamp">
+                </div>
+                <div id="summary-setting-container">
+                    <button id="start-summary">summarize</button>
+                    <button id="summarize-all">summarize all</button>
+                    <button id="reset-summary">reset summary</button>
+                    <select id="language-selector">
+                        <option value="en-US">english</option>
+                        <option value="es">spanish</option>
+                        <option value="fr">french</option>
+                        <option value="ar-ma">arabic</option>
+                    </select>
+                    <input type="password" id="api-input" placeholder="chat gpt api key">
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const transcriptStatus = document.querySelector("#transcript-status");
+        const transcriptContainer = document.querySelector("#transcript-container");
+        const transcript = document.querySelector("#transcript");
+        const summaryContainer = document.querySelector("#summary-text");
+        const questionsContainer = document.querySelector("#questions-text");
+        const possibleContainer = document.querySelector("#possible-text");
+        const settingsContainer = document.querySelector("#bigger-setting-container");
+        const summaryStatus = document.querySelector("#summary-status");
+        const languageSelector = document.querySelector("#language-selector");
+        const startTranscript = document.querySelector("#start-transcript");
+        const resetTranscript = document.querySelector("#reset-transcript");
+        const targetWords = document.querySelector("#target-words");
+        const targetDate = document.querySelector("#target-date");
+        const apiInput = document.querySelector("#api-input");
+        const startSummary = document.querySelector("#start-summary");
+        const summarizeAll = document.querySelector("#summarize-all");
+        const resetSummary = document.querySelector("#reset-summary");
+        const toggleSettings = document.querySelector("#toggle-settings");
+        const outputContainers = document.querySelectorAll(".output-container");
+
+        const classType = "minnesota driver's ed class";
+
+        let startDate = new Date();
+        let finalTranscript = "";
+        let lastTranscript = "";
+        let savedSummary = "";
+        let savedQuestions = "";
+        let savedPossibleQuestions = "";
+        let languageSelected = "english";
+        let wordList = "";
+        let sentenceCount = 0;
+        let found = false;
+        let foundDate = false;
+        let summarizing = false;
+        let transcriptWords = [];
+        let transcriptDates = [];
+        let transcriptContext = [];
+        const testContext = ["Before making any turn, it is important that you signal. If your vehicle's turn signals do not work, use hand signals. Make up your mind about your turn before you get to the turning point, lower your speed, move to the correct lane and give a turn signal to show your intention.",
+
+"Everywhere except New York city you're allowed to turn right on a red light. First you will need to stop at the stop line, make sure that you do not interfere with pedestrians, bicyclists, or vehicles moving on their green light, and make a turn.",
+
+"If a street has a left turn lane, you must use it when you turn left. Turn only when it is safe. When making a U-turn, start the turn from the far left lane on your side. Complete the U-turn in the right lane traveling in the opposite direction. U-turns are not legal everywhere. If you see the sign that prohibits U-turns, if you're on a hilly road, on highway or travelling in bad weather conditions that can obstruct the view, such as rain or fog, you cannot execute a U-turn."]
+        let recognition;
+        let apiKey = apiInput.value.trim();
+
+        if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
+            window.onload = (e) => {
+                lastTranscript = localStorage.getItem("lastTranscript");
+                targetWords.value = localStorage.getItem("targetWords") || "";
+                apiKey = localStorage.getItem("apiKey") || "";
+
+                savedSummary = localStorage.getItem("summary") || "";
+                savedQuestions = localStorage.getItem("questions") || "";
+                savedPossibleQuestions = localStorage.getItem("possibleQuestions") || "";
+
+                if (lastTranscript) {
+                    transcript.innerHTML = lastTranscript;
+                    transcriptContainer.scrollTop = transcriptContainer.scrollHeight - transcriptContainer.clientHeight;
+                }
+                if (apiKey) {
+                    apiInput.value = apiKey;
+                }
+                if (savedSummary) {
+                    summaryContainer.innerHTML = savedSummary;
+                    questionsContainer.innerHTML = savedQuestions;
+                    possibleContainer.innerHTML = savedPossibleQuestions;
+
+                    outputContainers.forEach(container => {
+                        container.scrollTop = container.scrollHeight - container.clientHeight;
+                    });
+                }
+
+                summaryStatus.textContent = `Last summarized at: ${new Date().toLocaleTimeString()}`;
+            }
+
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = languageSelector.value;
+            recognition.interimResults = true;
+            recognition.continuous = true;
+
+            recognition.onstart = () => {
+                transcriptStatus.textContent = "started transjcirption";
+            }
+            recognition.onend = () => {
+                transcriptStatus.textContent = "ended (not suposed to hapen)";
+                startTranscript.classList.remove("active");
+            }
+            recognition.onerror = (e) => {
+                transcriptStatus.textContent = "minor oopsy (check cnsonsole)";
+                startTranscript.classList.remove("active");
+                console.error("mistkae: ", e.error);
+            }
+
+            recognition.onresult = (e) => {
+                
+                let interimTranscript = "";
+
+                for (let i = e.resultIndex; i < e.results.length; ++i) {
+                    let result = e.results[i][0].transcript;
+                    if (e.results[i].isFinal) {
+                        result = result.charAt(1).toUpperCase() + result.slice(2);
+                        finalTranscript += result ? `<h2>${result}.<br><p class="transcript-date">(${new Date().toLocaleTimeString()})<p></h2> ` : "";
+                        // finalTranscript += result ? `${result}.` : "";
+                        transcriptContext.push(result);
+                        console.log(transcriptContext.toString());
+                        sentenceCount++;
+                        found = false;
+                    } else {
+                        interimTranscript += result;
+                    }
+                }
+                transcript.innerHTML = `${lastTranscript} <p class="transcript-date">(${startDate})</p> ${finalTranscript}<h2 class="active-word">${interimTranscript}</h2>`;
+                
+                // const currentDate = new Date().toLocaleTimeString();
+                // transcript.innerHTML = `<h2>${finalTranscript}<span class="transcript-final">${sentenceCount > 0 ? ' <span class="transcript-date">(' + currentDate + ')</span>' : ''}</span>${interimTranscript}</h2>`;
+                transcriptContainer.scrollTop = transcriptContainer.scrollHeight - transcriptContainer.clientHeight;
+
+                transcriptWords = transcript.querySelectorAll("h2");
+                transcriptDates = transcript.querySelectorAll("p");
+                const currentDate = transcriptDates[transcriptDates.length - 2].textContent || transcriptDates[transcriptDates.length - 1].textContent;
+                const words = transcript.textContent.split(" ");
+                const activeWord = words[words.length - 1];
+                wordList = words.slice(words.length - 1000, words.length - 1).toString().replaceAll(",", " ");
+
+                transcriptWords.forEach(word => {
+                    if (word.textContent === activeWord) {
+                        word.classList.add("active-word");
+                    } else {
+                        word.classList.remove("active-word");
+                    }
+                });
+
+                targetWords.value.split(", ").forEach(target => {
+                    interimTranscript.split(" ").forEach(word => {
+                        const containsWord = word.trim().toLowerCase() === target.trim().toLowerCase();
+                        if (containsWord && !found) {
+                            console.log("has wrod", currentDate, interimTranscript, new Date().toLocaleTimeString());
+                            targetDate.value = currentDate.substring(1, currentDate.length - 1);
+                            findDate();
+                            found = true;
+                        } else if (containsWord) {
+                            console.log(interimTranscript);
+                            // findDate();
+                        }
+                    });
+                });
+
+                if (sentenceCount >= 5 && !summarizing) {
+                    startingSummary();
+                    startSummary.classList.add("active");
+                    console.log("startijg summary");
+                    sentenceCount = 0;
+                } else if (summarizing) {
+                    sentenceCount = 0;
+                }
+
+                localStorage.setItem("lastTranscript", transcript.innerHTML);
+            }
+            
+            startTranscript.addEventListener("click", () => {
+                startDate = new Date().toLocaleTimeString();
+                recognition.start();
+            });
+
+            resetTranscript.addEventListener("click", () => {
+                transcript.innerHTML = "";
+                localStorage.setItem("lastTranscript", transcript.innerHTML);
+                lastTranscript = localStorage.getItem("lastTranscript");
+            });
+
+            resetSummary.addEventListener("click", () => {
+                summaryContainer.innerHTML = "";
+                questionsContainer.innerHTML = "";
+                possibleContainer.innerHTML = "";
+                wordList = "";
+                transcriptContext = [];
+                sentenceCount = 0;
+                localStorage.setItem("summary", summaryContainer.innerHTML);
+                localStorage.setItem("questions", questionsContainer.innerHTML);
+                localStorage.setItem("possibleQuestions", possibleContainer.innerHTML);
+                summaryStatus.textContent = `Last summarized at: ${new Date().toLocaleTimeString()}`
+            });
+
+            startSummary.addEventListener("click", () => {
+                if (!summarizing) {
+                    startingSummary(transcriptContext.toString());
+                    startSummary.classList.add("active");
+                }
+            });
+
+            summarizeAll.addEventListener("click", () => {
+                if (!summarizing) {
+                    startingSummary(wordList);
+                    summarizeAll.classList.add("active");
+                }
+            });
+
+            targetWords.addEventListener("change", () => {
+                localStorage.setItem("targetWords", targetWords.value);
+            });
+
+            targetDate.addEventListener("input", () => {
+                if (targetDate.value.trim()) {
+                    findDate();
+                }
+            });
+
+            languageSelector.addEventListener("change", (e) => {
+                languageSelected = e.target.options[e.target.selectedIndex].text;
+            });
+
+            toggleSettings.addEventListener("click", () => {
+                settingsContainer.classList.toggle("hidden");
+                outputContainers.forEach(container => {
+                    container.scrollTop = container.scrollHeight - container.clientHeight;
+                });
+            });
+
+            startTranscript.addEventListener("click", () => {
+                startTranscript.classList.add("active");
+            });
+
+            // document.querySelectorAll("h3").forEach(elem => {
+            //     console.log(elem);
+            //     elem.addEventListener("click", (e) => {
+            //         console.log(e.target.innerHTML);
+            //     })
+            // });
+
+            apiInput.addEventListener("change", () => {
+                apiKey = apiInput.value.trim();
+                if (apiKey) {
+                    localStorage.setItem("apiKey", apiKey);
+                }
+            });
+
+            const findDate = () => {
+                console.log(targetDate.value);
+                foundDate = false;
+                transcriptDates.forEach(date => {
+                    date.classList.remove("active-date");
+                    if (date && date.textContent.includes(targetDate.value)) {
+                        date.classList.add("active-date");
+                        console.log(targetDate.value, date.textContent);
+                        if (!foundDate) {
+                            date.scrollIntoView({ behavior: "smooth", block: "center" });
+                            foundDate = true;
+                        }
+                    }
+                });
+            }
+
+            const startingSummary = (summaryContent) => {
+                summarizing = true;
+                summaryStatus.textContent = `Summary started at: ${new Date().toLocaleTimeString()}`;
+                loadAi(summaryContent);
+            }
+
+            const generatePrompt = (summaryContent) => {
+                return `You are a student attending a ${classType} class. Here is the raw transcript from what the instructor has said: "${summaryContent || transcriptContext.toString() || wordList}". Your task is to summarize the most important points from what the instructor has currently said, and generate a few (preferably 2-3, but more as needed) concise bullet points. Additionally, identify any explicit questions asked during the lecture, and if none were asked, state so. Finally, identify any possible questions that could arise based on the lecture content.
+                Here is the output format, do NOT deviate from this format in any way, and do NOT include anything else other than this. Add a hyphen before sentences/bullet points. If what has been given to you is illogical or incomplete, infer what was said based on this being a ${classType} in ${languageSelected}:
+
+                Summary: -[Concise, 1-2 sentence points that highlight the key information. Use more or less points as necessary.]
+                Questions: -[Bulleted questions for each one asked, starting with "Q:" exactly as asked. A sub-bullet for each question, starting with "A:", and a 1-2 sentence possible answer for each question asked. If none, state "No questions asked.".]
+                Possible Questions: -[Bulleted 1-2 sentence questions, starting with "Q:". A sub-bullet for each question, starting with "A:", with a 1-2 sentence answer. If none, or if explicitly stated questions are present, state "No possible questions.".]`;
+            }
+
+            const loadAi = async (summaryContent) => {
+                console.log("getting chatgpt");
+                if (apiKey && transcriptContext) {
+                    console.log(generatePrompt());
+                    await fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            "model": "gpt-3.5-turbo",
+                            "messages": [{"role": "user", "content": generatePrompt(summaryContent)}],
+                            "temperature": 1
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        const results = data.choices[0].message.content;
+                        loadAnswers(results);
+                        summaryStatus.textContent = `Last summarized at: ${new Date().toLocaleTimeString()}`;
+                        transcriptContext = [];
+                        summarizing = false;
+                        startSummary.classList.remove("active");
+                        summarizeAll.classList.remove("active");
+                    })
+                    .catch(err => {
+                        console.log(err);
+                    });
+                } else {
+                    console.log("no api key");
+                }
+            }
+
+            const loadAnswers = (response) => {
+                const summaryMatch = response.match(/Summary:([\s\S]+?)Questions:/);
+                const questionsMatch = response.match(/Questions:([\s\S]+?)(?=Possible Questions:|$)/);
+                const possibleMatch = response.match(/Possible Questions:([\s\S]+)/);
+
+                const summary = summaryMatch ? summaryMatch[1].trim() : "Unable to summarize, please try again.";
+                const questions = questionsMatch ? questionsMatch[1].trim() : "No questions found, please try again.";
+                const possibleQuestions = possibleMatch ? possibleMatch[1].trim() : "No possible questions generated, please try again."
+            
+                summaryContainer.innerHTML +=  `<h3>(${new Date().toLocaleTimeString()})</h3>` + summary.split("\n").map(item => `<li style="margin-left: 1rem;">${item}</li>`).join("");
+                questionsContainer.innerHTML += `<h3>(${new Date().toLocaleTimeString()})</h3>` + questions.split("\n").map(item => `<li style="margin-left: 1rem;">${item}</li>`).join("");
+                possibleContainer.innerHTML += `<h3>(${new Date().toLocaleTimeString()})</h3>` + possibleQuestions.split("\n").map(item => `<li style="margin-left: 1rem;">${item}</li>`).join("");
+
+                localStorage.setItem("summary", summaryContainer.innerHTML);
+                localStorage.setItem("questions", questionsContainer.innerHTML);
+                localStorage.setItem("possibleQuestions", possibleContainer.innerHTML);
+
+                outputContainers.forEach(container => {
+                    container.scrollTop = container.scrollHeight - container.clientHeight;
+                });
+
+                console.log(summary, questions, possibleQuestions);
+            }
+
+        } else {
+            transcriptStatus.textContent = "not suported";
+        }
+    </script>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,700;0,900;1,500&display=swap");
+
+        * {
+            transition: all 0.5s ease;
+            font-family: "Roboto", sans-serif;
+            /* border: 1px solid red !important; */
+        }
+
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden !important;
+            overflow-y: hidden !important;
+        }
+
+        body {
+            margin: 0;
+            padding: 2rem;
+            max-height: 90vh !important;
+            max-width: 100vw !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            color: #F1F0EA;
+            background-color: #252325;
+            /* font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; */
+            font-family: "Roboto", sans-serif;
+        }
+
+        #bigger-transcript-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        #bigger-summary-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-auto-flow: dense;
+            grid-auto-columns: 100%;
+            gap: 1rem;
+            width: 100%;
+            max-height: 92vh;
+        }
+
+        #bigger-summary-container div:nth-child(1) {
+            grid-column: 3 / 1;
+            grid-row: 2 / 1;
+        }
+
+        #bigger-summary-container div:nth-child(4) {
+            grid-column: 3 / 1;
+            grid-row: 3;
+        }
+
+        .output-container {
+            height: 100%;
+        }
+
+        #summary-container {
+            min-height: 100%;
+        }
+
+        #questions-container, #possible-container {
+            max-height: 100%;
+            overflow-x: scroll;
+        }
+
+        #questions-container h2 , #possible-container h2 {
+            font-size: 1.2rem;
+        }
+
+        #transcript-container, .output-container {
+            position: relative;
+            max-height: 92.5vh !important;
+            width: 100%;
+            overflow-y: scroll;
+            scroll-behavior: smooth;
+            margin-right: auto;
+            /* border: 1.5px solid #DBD053; */
+            border: 1px solid #DBD053;
+            border-radius: 1rem;
+            box-shadow: inset 0px 60px 100px rgba(0, 0, 0, 0.3), 12px 15px 17px rgba(0, 0, 0, 0.12);
+        }
+
+        .output-container {
+            color: rgba(241, 240, 234, 0.9) !important;
+        }
+        
+        h3 {
+            color: rgba(241, 240, 234, 0.7) !important;
+            font-weight: normal;
+            margin-bottom: -0.5rem;
+        }
+
+        #bigger-setting-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: space-between;
+            width: 100%;
+            height: 100% !important;
+        }
+
+        #transcript-settings, #summary-setting-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 1rem;
+            width: 60%;
+        }
+
+        #transcript, .text-container {
+            overflow-x: auto;
+            padding: 1.5rem;
+            padding-top: 2rem;
+            padding-bottom: 0rem;
+            line-height: 2rem;
+            list-style: none;
+            margin-top: 1.5rem;
+        }
+
+        .text-container {
+            line-height: 3rem;
+        }
+
+        #transcript, h2 {
+            font-weight: bold;
+        }
+
+        .transcript-date {
+            font-weight: normal;
+            font-style: italic;
+            opacity: 0.7 !important;
+            line-height: -0.5rem !important;
+            margin-bottom: -1.25rem !important;
+            margin-top: 1rem !important;
+            font-size: 1rem !important;
+        }
+        
+        h2 {
+            opacity: 0.8;
+        }
+
+        h2:hover {
+            opacity: 1 !important;
+        }
+
+        .active-word, .active-date {
+            background-color: #DBD053;
+            border-radius: 4px;
+            opacity: 1 !important;
+        }
+
+        .active {
+            border-color: #DBD053 !important;
+            color: #DBD053 !important;
+        }
+
+        .title-text {
+            position: absolute;
+            margin-left: 1.5rem;
+        }
+
+        #transcript-status, #summary-status {
+            position: relative;
+            font-size: 1rem;
+        }
+
+        input, button, select {
+            outline: none;
+            border: none;
+            border-radius: 4px;
+            color: #F1F0EA;
+            font-weight: 500;
+            padding: 0.5rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+            background-color: #252325;
+            border: 0.5px solid white;
+            box-shadow: inset 0px 60px 100px rgba(0, 0, 0, 0.12), 12px 15px 17px rgba(0, 0, 0, 0.12);
+        }
+
+        input:hover, button:hover, select:hover {
+            transform: translateY(2px);
+            border-color: #DBD053;
+            opacity: 1;
+        }
+
+        #toggle-settings {
+            position: fixed;
+            right: 2rem;
+            z-index: 9;
+            border-radius: 1rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            * {
+                flex-direction: column !important;
+                width: 100%;
+            }
+
+            body {
+                overflow-y: scroll;
+                display: grid;
+                grid-template-columns: repeat(1, 1fr);
+            }
+        }
+    </style>
+</body>
+</html>
