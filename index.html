@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>yes</title>
+    <title>Driver's Ed Help by dris</title>
 </head>
 <body>
-    <button id="toggle-settings">settings</button>
+    <button id="toggle-settings">SETTINGS</button>
     <div id="bigger-transcript-container">
         <div id="transcript-container">
             <h2 class="title-text">Transcript</h2>
             <div id="transcript"></div>
-            <h2 id="transcript-status" class="title-text">status (not staretd)</h2>
+            <h2 id="transcript-status" class="title-text">Status: NOT Started</h2>
         </div>
         <div id="bigger-summary-container">
             <div id="summary-container" class="output-container">
@@ -30,23 +30,23 @@
             </div>
             <div id="bigger-setting-container">
                 <div id="transcript-settings">
-                    <h1 style="text-align: center;"><span style="color: #DBD053">drivers Ed</span> <span style="letter-spacing: 0.1rem;">help</span> <span style="font-size: 0.7rem">(by dris)</span></h1>
-                    <button id="start-transcript">start</button>
-                    <button id="reset-transcript">reset</button>
-                    <input type="text" id="target-words" placeholder="speertate by comma">
-                    <input type="text" id="target-date" placeholder="timestamp">
+                    <h1 style="text-align: center;"><span style="color: #DBD053" id="input-text">Driver's Ed</span><span id="class-input" style="display: none; z-index: 9;"><input type="text" value="yeah" maxlength="35" placeholder="Class type/name"></span> <span style="letter-spacing: -0.1rem;">Help</span> <span style="font-size: 0.7rem">(by dris)</span></h1>
+                    <button id="start-transcript">Start</button>
+                    <button id="reset-transcript">Reset</button>
+                    <input type="text" id="target-words" placeholder="Keywords (comma separated values)">
+                    <input type="text" id="target-date" placeholder="Timestamp">
                 </div>
                 <div id="summary-setting-container">
-                    <button id="start-summary">summarize</button>
-                    <button id="summarize-all">summarize all</button>
-                    <button id="reset-summary">reset summary</button>
+                    <button id="start-summary">Summarize</button>
+                    <button id="summarize-all">Summarize ALL</button>
+                    <button id="reset-summary">Reset Summary</button>
                     <select id="language-selector">
-                        <option value="en-US">english</option>
-                        <option value="es">spanish</option>
-                        <option value="fr">french</option>
-                        <option value="ar-ma">arabic</option>
+                        <option value="en-US">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="ar-ma">Arabic</option>
                     </select>
-                    <input type="password" id="api-input" placeholder="chat gpt api key">
+                    <input type="password" id="api-input" placeholder="ChatGPT API Key">
                 </div>
             </div>
         </div>
@@ -70,9 +70,11 @@
         const summarizeAll = document.querySelector("#summarize-all");
         const resetSummary = document.querySelector("#reset-summary");
         const toggleSettings = document.querySelector("#toggle-settings");
+        const inputText = document.querySelector("#input-text");
+        const classInput = document.querySelector("#class-input");
         const outputContainers = document.querySelectorAll(".output-container");
 
-        const classType = "minnesota driver's ed class";
+        let classType = localStorage.getItem("classInput") || "Minnesota Driver's Ed";
 
         let startDate = new Date();
         let finalTranscript = "";
@@ -89,11 +91,6 @@
         let transcriptWords = [];
         let transcriptDates = [];
         let transcriptContext = [];
-        const testContext = ["Before making any turn, it is important that you signal. If your vehicle's turn signals do not work, use hand signals. Make up your mind about your turn before you get to the turning point, lower your speed, move to the correct lane and give a turn signal to show your intention.",
-
-"Everywhere except New York city you're allowed to turn right on a red light. First you will need to stop at the stop line, make sure that you do not interfere with pedestrians, bicyclists, or vehicles moving on their green light, and make a turn.",
-
-"If a street has a left turn lane, you must use it when you turn left. Turn only when it is safe. When making a U-turn, start the turn from the far left lane on your side. Complete the U-turn in the right lane traveling in the opposite direction. U-turns are not legal everywhere. If you see the sign that prohibits U-turns, if you're on a hilly road, on highway or travelling in bad weather conditions that can obstruct the view, such as rain or fog, you cannot execute a U-turn."]
         let recognition;
         let apiKey = apiInput.value.trim();
 
@@ -106,6 +103,9 @@
                 savedSummary = localStorage.getItem("summary") || "";
                 savedQuestions = localStorage.getItem("questions") || "";
                 savedPossibleQuestions = localStorage.getItem("possibleQuestions") || "";
+
+                inputText.textContent = localStorage.getItem("classInput") || "Driver's Ed";
+                classInput.firstChild.value = classType;
 
                 if (lastTranscript) {
                     transcript.innerHTML = lastTranscript;
@@ -133,14 +133,14 @@
             recognition.continuous = true;
 
             recognition.onstart = () => {
-                transcriptStatus.textContent = "started transjcirption";
+                transcriptStatus.textContent = `Status: Transcription Started at ${new Date().toLocaleTimeString()}`;
             }
             recognition.onend = () => {
-                transcriptStatus.textContent = "ended (not suposed to hapen)";
+                transcriptStatus.textContent = `Status: Transcription Ended at ${new Date().toLocaleTimeString()}`;
                 startTranscript.classList.remove("active");
             }
             recognition.onerror = (e) => {
-                transcriptStatus.textContent = "minor oopsy (check cnsonsole)";
+                transcriptStatus.textContent = "Status: ERROR (check console)";
                 startTranscript.classList.remove("active");
                 console.error("mistkae: ", e.error);
             }
@@ -152,7 +152,7 @@
                 for (let i = e.resultIndex; i < e.results.length; ++i) {
                     let result = e.results[i][0].transcript;
                     if (e.results[i].isFinal) {
-                        result = result.charAt(1).toUpperCase() + result.slice(2);
+                        result = result.slice(0, 2).toUpperCase() + result.slice(2);
                         finalTranscript += result ? `<h2>${result}.<br><p class="transcript-date">(${new Date().toLocaleTimeString()})<p></h2> ` : "";
                         // finalTranscript += result ? `${result}.` : "";
                         transcriptContext.push(result);
@@ -259,8 +259,31 @@
                 }
             });
 
+            inputText.addEventListener("click", (e) => {
+                inputText.style.display = "none";
+                classInput.style.display = "inline-block";
+                classInput.focus();
+                classInput.addEventListener("change", () => {
+                    e.preventDefault();
+                    let newClass = classInput.firstChild.value
+                    localStorage.setItem("classInput", newClass);
+                    classType = newClass;
+                    inputText.textContent = newClass;
+                    inputText.style.display = "inline-block";
+                    classInput.style.display = "none";
+                });
+                console.log("eyakjhdsa");
+            });
+
+            classInput.addEventListener("dblclick", (e) => {
+                e.preventDefault();
+                inputText.style.display = "inline-block";
+                classInput.style.display = "none";
+            });
+
             languageSelector.addEventListener("change", (e) => {
                 languageSelected = e.target.options[e.target.selectedIndex].text;
+                console.log("yeah");
             });
 
             toggleSettings.addEventListener("click", () => {
@@ -312,7 +335,7 @@
 
             const generatePrompt = (summaryContent) => {
                 return `You are a student attending a ${classType} class. Here is the raw transcript from what the instructor has said: "${summaryContent || transcriptContext.toString() || wordList}". Your task is to summarize the most important points from what the instructor has currently said, and generate a few (preferably 2-3, but more as needed) concise bullet points. Additionally, identify any explicit questions asked during the lecture, and if none were asked, state so. Finally, identify any possible questions that could arise based on the lecture content.
-                Here is the output format, do NOT deviate from this format in any way, and do NOT include anything else other than this. Add a hyphen before sentences/bullet points. If what has been given to you is illogical or incomplete, infer what was said based on this being a ${classType} in ${languageSelected}:
+                Here is the output format, do NOT deviate from this format in any way, and do NOT include anything else other than this. Add a hyphen before sentences/bullet points. If what has been given to you is illogical or incomplete, infer what was said based on this being a ${classType} class in ${languageSelected}:
 
                 Summary: -[Concise, 1-2 sentence points that highlight the key information. Use more or less points as necessary.]
                 Questions: -[Bulleted questions for each one asked, starting with "Q:" exactly as asked. A sub-bullet for each question, starting with "A:", and a 1-2 sentence possible answer for each question asked. If none, state "No questions asked.".]
@@ -387,6 +410,7 @@
         * {
             transition: all 0.5s ease;
             font-family: "Roboto", sans-serif;
+            letter-spacing: -0.05rem;
             /* border: 1px solid red !important; */
         }
 
@@ -397,16 +421,16 @@
         }
 
         body {
-            margin: 0;
+            margin: 0 auto;
             padding: 2rem;
-            max-height: 90vh !important;
-            max-width: 100vw !important;
+            height: 100vh !important;
+            max-width: 80% !important;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             align-items: center;
             color: #F1F0EA;
-            background-color: #252325;
+            background: linear-gradient(#313134, #252325);
             /* font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; */
             font-family: "Roboto", sans-serif;
         }
@@ -492,6 +516,7 @@
             flex-direction: column;
             justify-content: flex-end;
             padding: 1rem;
+            padding-left: 0;
             width: 60%;
         }
 
@@ -506,7 +531,7 @@
         }
 
         .text-container {
-            line-height: 3rem;
+            line-height: 2.5rem;
         }
 
         #transcript, h2 {
@@ -535,6 +560,8 @@
             background-color: #DBD053;
             border-radius: 4px;
             opacity: 1 !important;
+            scale: 1.05;
+            margin-left: 1rem;
         }
 
         .active {
@@ -561,9 +588,13 @@
             padding: 0.5rem;
             opacity: 0.8;
             margin-bottom: 0.5rem;
-            background-color: #252325;
+            background-color: transparent;
             border: 0.5px solid white;
             box-shadow: inset 0px 60px 100px rgba(0, 0, 0, 0.12), 12px 15px 17px rgba(0, 0, 0, 0.12);
+        }
+
+        button {
+            text-align: center !important;
         }
 
         input:hover, button:hover, select:hover {
@@ -577,6 +608,7 @@
             right: 2rem;
             z-index: 9;
             border-radius: 1rem;
+            text-align: center;
         }
 
         .hidden {
@@ -589,10 +621,22 @@
                 width: 100%;
             }
 
+            #toggle-settings {
+                width: 4rem;
+            }
+
             body {
                 overflow-y: scroll;
                 display: grid;
                 grid-template-columns: repeat(1, 1fr);
+            }
+
+            #transcript {
+                font-size: 1rem !important;
+            }
+
+            .text-container {
+                font-size: 0.7rem !important;
             }
         }
     </style>
